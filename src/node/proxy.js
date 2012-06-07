@@ -1,7 +1,8 @@
 // proxy.js
 
 
-var fs = require('fs');
+var fs = require('fs'),
+    child_process = require('child_process');
 
 // add some stuff to fs because the return types are sometimes complicated objects that don't jsonify
 fs.statBrackets = function(path, callback) {
@@ -29,10 +30,14 @@ stupid.reverse = function(s) {
 
 // end test namespace
 
+// child_processes
+
+var child_processes = {};
 
 var namespaces = {
 	fs : fs,
-	stupid : stupid
+	stupid : stupid,
+    child_process : child_process
 };
 
 
@@ -47,10 +52,26 @@ function handleConnection(ws) {
    ws.on('message', function(message) {
         console.log('received: %s', message);
         try {
+        	var cp;
+
 	   		m = JSON.parse(message);
-   			//console.log('parsed version:');
-   			//console.log(m);
-	   		doCommand(m.id, m.namespace, m.command, m.args, m.isAsync, ws);
+
+	   		if (m.module_path) {
+	   			cp = child_process.fork(m.module_path, m.args, m.options);
+				ws.send(JSON.stringify({id: id, pid: cp.pid}));
+	   // 			cp.on('message', function (message) {
+	   // 				console.log("ChildProcess PID: " + m.pid + ", got message: " + message);
+	   // 			});
+	   // 			child_processes[cp.pid] = cp;
+				// ws.send(JSON.stringify({id: id, result: args}));
+	   // 		} else if (m.pid) {
+	   // 			console.log("ChildProcess PID: " + m.pid + ", send message: " + message);
+	   // 			child_processes[m.pid].send(m.message);
+	   		} else if (m.id) {
+	   			//console.log('parsed version:');
+	   			//console.log(m);
+		   		doCommand(m.id, m.namespace, m.command, m.args, m.isAsync, ws);
+		   	}
 	   	} catch (e) {
 	   		console.log("Error: could't parse the message or something");
 	   	}
